@@ -20,16 +20,22 @@ const csvHeader = [
 	"GSTIN",
 	"Item Code",
 	"Item description",
+	"Item Unit Price",
 	"Item Quantity",
-	"Item Price With Tax",
-	"Item Price Without Tax",
+	"Total Unit Price",
 	"Tax Rate",
+	"Actual Item Amount",
+	"Discount %",
+	"Discount Code",
+	"Discount Value",
+	"Actual Item Amount After Discount",
 	"CGST",
 	"SGST",
 	"IGST",
 	"CGST Value",
 	"SGST Value",
 	"IGST Value",
+	"Actual Item Amount After Discount After Tax",
 	"Shipping Charges",
 	"Shipping CGST",
 	"Shipping SGST",
@@ -38,9 +44,6 @@ const csvHeader = [
 	"Shipping SGST Value",
 	"Shipping IGST Value",
 	"Shipping Tax Rate",
-	"Discount %",
-	"Discount Code",
-	"Discount Value",
 	"Total Product Value",
 	"Total Product Tax Value",
 	"Total Invoice Value",
@@ -68,41 +71,57 @@ function extractFields(data) {
 	const billingCountry = data?.billing_address?.country_code || '';
 	const billingCity = data?.billing_address?.city || '';
 
+	const discountCode = data?.discounts?.[0]?.code || '';
+	const discountRate = data?.discounts?.[0]?.rule?.value ? `${data?.discounts?.[0]?.rule?.value || ''} %` : '';
+	const itemDiscountTotal = data?.items?.[0]?.discount_total / 100 || 0;
+
+	const itemTaxRate = data?.items?.[0]?.tax_lines?.[0]?.rate || 0;
+
 	const itemSKU = data?.items?.[0]?.variant?.sku || '';
 	const itemDescription = data?.items?.[0]?.title || '';
-	const itemQuantity = data?.items?.[0]?.quantity || '';
-	const itemPriceWithTax = (data?.items?.[0]?.original_total || 0) / 100 || '';
-	const itemPriceWithoutTax = (data?.items?.[0]?.unit_price || 0) / 100 || '';
+	const itemQuantity = data?.items?.[0]?.quantity || 0;
+
+	const itemUnitPrice = (data?.items?.[0]?.unit_price / 100) || 0;
+	const itemTotalUnitPrice = (data?.items?.[0]?.unit_price * itemQuantity) / 100 || 0;
+	const itemActualAmount = (data?.items?.[0]?.subtotal / 100) || 0;	
+	const itemAmountAfterDiscount = (data?.items?.[0]?.subtotal - data?.items?.[0]?.discount_total) / 100 || 0;
+	const itemAmountAfterDiscountAfterTax = (data?.items?.[0]?.total / 100) || 0;
+		
+	// const itemBasePrice = ((data?.items?.[0]?.unit_price)/(1 + itemTaxRate/100)) / 100 || 0;
+	// const itemBaseDiscountedPrice = (itemBasePrice - itemDiscountTotal) || 0;
+
+	const itemPriceWithTax = (data?.items?.[0]?.total / 100) || 0;
+	const itemPriceWithoutTax = (data?.items?.[0]?.subtotal - data?.items?.[0]?.discount_total) / 100 || 0;
+	// const itemPriceWithoutTax = itemBaseDiscountedPrice;
+	// const itemPriceWithTax = itemBaseDiscountedPrice + (itemBaseDiscountedPrice * (itemTaxRate/100)) || 0;
+	// const itemPriceWithTax = (data?.items?.[0]?.original_total || 0) / 100 || '';
+	// const itemPriceWithoutTax = (data?.items?.[0]?.unit_price || 0) / 100 || '';
 
 	const shippingState = data?.shipping_address?.province || '';
 	const isIGSTApplicable = shippingState?.toLowerCase() === 'karnataka';
 
-	const itemTaxRate = data?.items?.[0]?.tax_lines?.[0]?.rate || '';
+	
 	const itemCGSTRate = itemTaxRate / 2 || 0;
 	const itemSGSTRate = isIGSTApplicable ? 0 : (itemTaxRate / 2 || 0);
 	const itemIGSTRate = isIGSTApplicable ? (itemTaxRate / 2 || 0) : 0;
-	const itemCGSTValue = ((itemPriceWithoutTax * itemCGSTRate) / 100) || '';
-	const itemSGSTValue = ((itemPriceWithoutTax * itemSGSTRate) / 100) || '';
-	const itemIGSTValue = ((itemPriceWithoutTax * itemIGSTRate) / 100) || '';
+	const itemCGSTValue = ((itemPriceWithoutTax * itemCGSTRate) / 100) || 0;
+	const itemSGSTValue = ((itemPriceWithoutTax * itemSGSTRate) / 100) || 0;
+	const itemIGSTValue = ((itemPriceWithoutTax * itemIGSTRate) / 100) || 0;
 	// Shipping
 	const shippingCharges = data?.shipping_methods?.[0]?.subtotal / 100 || 0;
 	const shippingTaxRate = data?.shipping_methods?.[0]?.tax_lines?.[0]?.rate || 0;
 	const shippingCGSTRate = shippingTaxRate / 2 || 0;
 	const shippingSGSTRate = isIGSTApplicable ? 0 : (shippingTaxRate / 2 || 0);
 	const shippingIGSTRate = isIGSTApplicable ? (shippingTaxRate / 2 || 0) : 0;
-	const shippingCGSTValue = ((shippingCharges * shippingCGSTRate) / 100) || '';
-	const shippingSGSTValue = ((shippingCharges * shippingSGSTRate) / 100) || '';
-	const shippingIGSTValue = ((shippingCharges * shippingIGSTRate) / 100) || '';
+	const shippingCGSTValue = ((shippingCharges * shippingCGSTRate) / 100) || 0;
+	const shippingSGSTValue = ((shippingCharges * shippingSGSTRate) / 100) || 0;
+	const shippingIGSTValue = ((shippingCharges * shippingIGSTRate) / 100) || 0;
 
-	const discountCode = data?.discounts?.[0]?.code || '';
-	const discountRate = data?.discounts?.[0]?.rule?.value ? `${data?.discounts?.[0]?.rule?.value || ''} %` : '';
-	const itemDiscountTotal = data?.items?.[0]?.discount_total / 100 || '';
+	const totalProductValue = data?.items?.[0]?.total / 100 || 0;
+	const totalProductTaxValue = data?.items?.[0]?.tax_total / 100 || 0;
 
-	const totalProductValue = data?.items?.[0]?.total / 100 || '';
-	const totalProductTaxValue = data?.items?.[0]?.tax_total / 100 || '';
-
-	const totalInvoiceValue = data?.total / 100 || '';
-	const totalInvoiceTaxValue = (data?.tax_total / 100) || '';
+	const totalInvoiceValue = data?.total / 100 || 0;
+	const totalInvoiceTaxValue = (data?.tax_total / 100) || 0;
 
 	const placeOfSupply = 'Bangalore';
 	const stateOfSupply = 'Karnataka';
@@ -129,31 +148,34 @@ function extractFields(data) {
 		"GSTIN",
 		itemSKU,
 		itemDescription,
+		itemUnitPrice,
 		itemQuantity,
-		itemPriceWithTax,
-		itemPriceWithoutTax,
+		(itemTotalUnitPrice).toFixed(2),
 		itemTaxRate,
+		(itemActualAmount).toFixed(2),
+		discountRate,
+		discountCode,
+		(itemDiscountTotal).toFixed(2),
+		(itemAmountAfterDiscount).toFixed(2),
 		itemCGSTRate,
 		itemSGSTRate,
 		itemIGSTRate,
-		itemCGSTValue,
-		itemSGSTValue,
-		itemIGSTValue,
-		shippingCharges,
+		(itemCGSTValue).toFixed(2),
+		(itemSGSTValue).toFixed(2),
+		(itemIGSTValue).toFixed(2),
+		(itemAmountAfterDiscountAfterTax).toFixed(2),
+		(shippingCharges).toFixed(2),
 		shippingCGSTRate,
 		shippingSGSTRate,
 		shippingIGSTRate,
-		shippingCGSTValue,
-		shippingSGSTValue,
-		shippingIGSTValue,
+		(shippingCGSTValue).toFixed(2),
+		(shippingSGSTValue).toFixed(2),
+		(shippingIGSTValue).toFixed(2),
 		shippingTaxRate,
-		discountRate,
-		discountCode,
-		itemDiscountTotal,
-		totalProductValue,
-		totalProductTaxValue,
-		totalInvoiceValue,
-		totalInvoiceTaxValue,
+		(totalProductValue).toFixed(2),
+		(totalProductTaxValue).toFixed(2),
+		(totalInvoiceValue).toFixed(2),
+		(totalInvoiceTaxValue).toFixed(2),
 		placeOfSupply,
 		stateOfSupply,
 		HSNCode,

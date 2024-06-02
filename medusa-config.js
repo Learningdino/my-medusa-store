@@ -235,5 +235,6 @@ module.exports = {
     product_categories: true,
     sales_channels: true,
     publishable_api_keys: true,
+    tax_inclusive_pricing: true,
   },
 };
